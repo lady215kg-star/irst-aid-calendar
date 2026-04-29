@@ -8,60 +8,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-wrapper">
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="logo-icon">✚</div>
-                <div>
-                    <span class="logo-text">RedCrescent</span>
-                    <h2 class="logo-title">FirstAid</h2>
-                </div>
-            </div>
-            
-            <nav class="nav-menu">
-                <button class="nav-btn active">Календарь</button>
-                <button class="nav-btn" id="openModal">Создать событие</button>
-                <a href="https://disk.yandex.ru/d/bRkh0mJBhW5llQ" target="_blank" class="nav-link">Обучалка (Docs)</a>
-            </nav>
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('active')">☰ Обучение</button>
 
-            <div class="stats-panel">
-                <p>Участников в базе: <span id="totalParticipants">0</span></p>
-            </div>
-        </aside>
+<div class="sidebar">
+    <h2>RedCrescent</h2>
+    <p>Здесь твои обучающие материалы...</p>
+    <a href="#" class="nav-link">📚 Google Docs</a>
+</div>
 
-        <main class="main-content">
-            <div class="calendar-section">
-                <div class="calendar-controls">
-                    <button id="prevMonth">◀</button>
-                    <h2 id="monthDisplay">Апрель 2026</h2>
-                    <button id="nextMonth">▶</button>
-                </div>
-                <div class="calendar-grid" id="calendarGrid"></div>
-            </div>
-
-            <div class="events-section">
-                <h3>События на выбранную дату</h3>
-                <div id="eventsContainer" class="events-container">
-                    <p class="empty-msg">Выберите дату, чтобы увидеть мероприятия</p>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <h3>Новое мероприятие</h3>
-            <input type="text" id="eventTitle" placeholder="Название (например, Тренинг СЛР)">
-            <input type="time" id="eventTime">
-            <input type="number" id="eventLimit" placeholder="Лимит участников (например, 10)">
-            <input type="text" id="eventPlace" placeholder="Место проведения">
-            <div class="modal-btns">
-                <button id="saveEvent">Создать</button>
-                <button id="closeModal">Отмена</button>
-            </div>
+<div class="main-content">
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <button id="prevMonth">❮</button>
+            <h3 id="monthDisplay">Апрель 2026</h3>
+            <button id="nextMonth">❯</button>
         </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <div id="eventsContainer">
+        </div>
+</div>
 </body>
 </html>
