@@ -35,12 +35,31 @@
 
     <main class="app-main">
         <section class="calendar-card">
-            <section id="trainingSection" style="display: none;">
-    <div class="calendar-card">
-        <button onclick="showCalendar()" style="margin-bottom: 15px; color: var(--red-primary); font-weight: bold;">← Назад к календарю</button>
-        <h2 id="trainingTitle">Обучение</h2>
-        <div id="trainingContent" style="margin-top: 20px;">
-            </div>
+    <div class="calendar-nav">
+        <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
+        <div class="calendar-title-wrap">
+            <span class="calendar-month" id="monthDisplay"></span>
+            <span class="calendar-year" id="yearDisplay"></span>
+        </div>
+        <button class="nav-btn" onclick="changeMonth(1)">❯</button>
+    </div>
+
+    <div id="iconLibrary" style="display: none;">
+        <span class="ico-time">⏰</span>
+        <span class="ico-location">📍</span>
+    </div>
+
+    <div class="weekdays">
+        <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span class="weekend">Сб</span><span class="weekend">Вс</span>
+    </div>
+    
+    <div class="calendar-grid" id="calendarGrid"></div>
+
+    <div class="date-label-wrap">
+        <div class="date-label-pill">
+            <div class="pulse-dot"></div>
+            <span id="selectedDateLabel">Выберите дату</span>
+        </div>
     </div>
 </section>
             <div class="calendar-nav">
