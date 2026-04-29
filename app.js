@@ -149,3 +149,36 @@ function setupEventListeners() {
 }
 
 init();
+// Функция для показа обучения
+window.showTraining = function(type) {
+    const calendar = document.querySelector('.calendar-card');
+    const training = document.getElementById('trainingSection');
+    const content = document.getElementById('trainingContent');
+    const title = document.getElementById('trainingTitle');
+
+    calendar.style.display = 'none';
+    training.style.display = 'block';
+    closeSidebar(); // Закрываем меню после клика
+
+    if (type === 'base') {
+        title.innerText = "📚 База знаний";
+        content.innerHTML = `
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 8px;">
+                    <a href="https://www.redcross.org.ua/ru/first-aid/basics/" target="_blank">🚑 Основы первой помощи (Официально)</a>
+                </li>
+                <li style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 8px;">
+                    <a href="#">📖 Твои конспекты для волонтеров</a>
+                </li>
+            </ul>`;
+    } else {
+        title.innerText = "🚑 Алгоритмы ПМП";
+        content.innerHTML = `<p>Здесь скоро появятся пошаговые инструкции (СЛР, остановка кровотечения и др.)</p>`;
+    }
+};
+
+// Функция возврата
+window.showCalendar = function() {
+    document.querySelector('.calendar-card').style.display = 'block';
+    document.getElementById('trainingSection').style.display = 'none';
+};
