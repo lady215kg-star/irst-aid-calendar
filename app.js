@@ -1,7 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { 
-    getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, orderBy 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, increment 
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAw0gQQ7wht2-K2UfPNPfBimtp93QSkTXs",
@@ -18,167 +18,152 @@ const db = getFirestore(app);
 let current = new Date();
 let selectedDateStr = "";
 
-// --- ИНИЦИАЛИЗАЦИЯ ---
+// 1. ИНИЦИАЛИЗАЦИЯ
 function init() {
     renderCalendar();
-    setupEventListeners();
+    setupMenu();
+    
+    // Слушатель для кнопки "Добавить" в Bottom Sheet
+    document.getElementById('openModal').onclick = openEventModal;
 }
 
-// --- ОТРИСОВКА КАЛЕНДАРЯ ---
+// 2. РАБОТА С МЕНЮ (SIDEBAR)
+function setupMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    
+    document.getElementById('menuBtn').onclick = () => {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+    };
+
+    document.getElementById('closeSidebar').onclick = closeMenu;
+    overlay.onclick = closeMenu;
+
+    // Ссылки на обучение и презентацию
+    const trainingLink = "https://disk.yandex.ru/d/bRkh0mJBhW5llQ";
+    const sidebarItems = document.querySelectorAll('.sidebar-item');
+    
+    sidebarItems.forEach(item => {
+        item.onclick = (e) => {
+            e.preventDefault();
+            window.open(trainingLink, '_blank');
+            closeMenu();
+        };
+    });
+}
+
+function closeMenu() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('active');
+}
+
+// 3. КАЛЕНДАРЬ
 function renderCalendar() {
     const grid = document.getElementById('calendarGrid');
-    const monthLabel = document.getElementById('monthDisplay');
-    const yearLabel = document.getElementById('yearDisplay');
-
     grid.innerHTML = '';
-    monthLabel.innerText = current.toLocaleString('ru', { month: 'long' });
-    yearLabel.innerText = current.getFullYear();
+    
+    document.getElementById('monthDisplay').innerText = current.toLocaleString('ru', { month: 'long' });
+    document.getElementById('yearDisplay').innerText = current.getFullYear();
 
     const year = current.getFullYear();
     const month = current.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const shift = firstDay === 0 ? 6 : firstDay - 1;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // Первый день месяца и количество дней
-    const firstDayIndex = new Date(year, month, 1).getDay();
-    const shift = firstDayIndex === 0 ? 6 : firstDayIndex - 1; // Коррекция под Пн-Вс
-    const lastDay = new Date(year, month + 1, 0).getDate();
+    for (let x = 0; x < shift; x++) grid.appendChild(createDay('', 'empty'));
 
-    // Пустые ячейки в начале
-    for (let x = 0; x < shift; x++) {
-        const empty = document.createElement('div');
-        empty.className = 'cal-day empty';
-        grid.appendChild(empty);
-    }
-
-    // Дни месяца
-    for (let i = 1; i <= lastDay; i++) {
-        const div = document.createElement('div');
-        div.className = 'cal-day';
-        div.innerText = i;
-        
+    for (let i = 1; i <= daysInMonth; i++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const dayEl = createDay(i, 'cal-day');
         
-        div.onclick = () => selectDay(i, dateStr, div);
-        grid.appendChild(div);
-
-        // Если это сегодняшний день - выделим его
-        const today = new Date();
-        if (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-            div.classList.add('today');
-        }
+        // Подсветка сегодня
+        if (new Date().toDateString() === new Date(year, month, i).toDateString()) dayEl.classList.add('today');
+        
+        dayEl.onclick = () => {
+            document.querySelectorAll('.cal-day').forEach(d => d.classList.remove('selected'));
+            dayEl.classList.add('selected');
+            selectedDateStr = dateStr;
+            loadEvents(dateStr);
+        };
+        grid.appendChild(dayEl);
     }
 }
 
-// --- ВЫБОР ДНЯ И ЗАГРУЗКА ИЗ FIREBASE ---
-function selectDay(day, dateStr, element) {
-    selectedDateStr = dateStr;
-    document.querySelectorAll('.cal-day').forEach(d => d.classList.remove('selected'));
-    element.classList.add('selected');
+function createDay(text, cls) {
+    const d = document.createElement('div');
+    d.className = cls;
+    d.innerText = text;
+    return d;
+}
 
-    document.getElementById('selectedDateLabel').innerText = `${day} ${current.toLocaleString('ru', { month: 'long' })}`;
-    
-    // Раскрываем панель событий (Bottom Sheet)
+// 4. ЗАГРУЗКА СОБЫТИЙ И ЗАПИСЬ
+function loadEvents(dateStr) {
+    const list = document.getElementById('eventsList');
     document.getElementById('bottomSheet').classList.add('expanded');
+    document.getElementById('selectedDateLabel').innerText = dateStr;
 
-    // Слушаем Firestore
     const q = query(collection(db, "events"), where("date", "==", dateStr));
-    onSnapshot(q, (snapshot) => {
-        const list = document.getElementById('eventsList');
+    onSnapshot(q, (snap) => {
         list.innerHTML = '';
-
-        if (snapshot.empty) {
-            list.innerHTML = '<div class="empty-state">Нет событий на этот день</div>';
+        if (snap.empty) {
+            list.innerHTML = '<p class="empty-state">Событий нет. Будь первым!</p>';
             return;
         }
 
-        snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
+        snap.forEach(docSnap => {
+            const ev = docSnap.data();
+            const isFull = ev.currentParticipants >= ev.maxParticipants;
+            
             const card = document.createElement('div');
             card.className = 'event-card';
             card.innerHTML = `
-                <div class="event-content">
-                    <p class="event-title">${data.title}</p>
-                    <p class="event-desc">${data.desc || ''}</p>
+                <div class="event-info">
+                    <strong>${ev.title}</strong>
+                    <p>${ev.time} | Мест: ${ev.currentParticipants}/${ev.maxParticipants}</p>
+                    ${isFull ? '<span style="color:red; font-size:12px;">ЗАБИТО</span>' : ''}
                 </div>
-                <button class="delete-btn" data-id="${docSnap.id}">✕</button>
+                <div class="event-actions">
+                    <button class="join-btn" ${isFull ? 'disabled' : ''} onclick="joinEvent('${docSnap.id}')">
+                        ${isFull ? 'Мест нет' : 'Записаться'}
+                    </button>
+                    <button class="del-btn" onclick="deleteEvent('${docSnap.id}')">✕</button>
+                </div>
             `;
-            
-            // Удаление
-            card.querySelector('.delete-btn').onclick = async (e) => {
-                e.stopPropagation();
-                if(confirm("Удалить запись?")) await deleteDoc(doc(db, "events", docSnap.id));
-            };
-
             list.appendChild(card);
         });
     });
 }
 
-// --- ОБРАБОТКА КНОПОК И МЕНЮ ---
-function setupEventListeners() {
-    // Навигация месяцев
-    document.getElementById('prevMonth').onclick = () => { current.setMonth(current.getMonth() - 1); renderCalendar(); };
-    document.getElementById('nextMonth').onclick = () => { current.setMonth(current.getMonth() + 1); renderCalendar(); };
-
-    // Сайдбар
-    const menuBtn = document.getElementById('menuBtn');
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-    const closeSidebar = document.getElementById('closeSidebar');
-
-    menuBtn.onclick = () => { sidebar.classList.add('open'); overlay.classList.add('active'); };
-    closeSidebar.onclick = () => { sidebar.classList.remove('open'); overlay.classList.remove('active'); };
-    overlay.onclick = () => { sidebar.classList.remove('open'); overlay.classList.remove('active'); };
-
-    // Модалка (Добавление)
-    const openModal = document.getElementById('openModal');
+// 5. ФУНКЦИИ FIREBASE
+async function openEventModal() {
+    if (!selectedDateStr) return alert("Сначала выбери день!");
     
-    openModal.onclick = () => {
-        if (!selectedDateStr) return alert("Сначала выбери дату!");
-        const title = prompt("Что запланировано?");
-        const desc = prompt("Описание (необязательно):");
-        
-        if (title) {
-            addDoc(collection(db, "events"), {
-                title: title,
-                desc: desc,
-                date: selectedDateStr,
-                createdAt: new Date()
-            });
-        }
-    };
+    const title = prompt("Название мероприятия:");
+    const time = prompt("Время (например, 14:00):");
+    const max = parseInt(prompt("Сколько максимум человек?"), 10);
+
+    if (title && time && max) {
+        await addDoc(collection(db, "events"), {
+            title, time, date: selectedDateStr, 
+            maxParticipants: max, currentParticipants: 0
+        });
+    }
 }
 
+window.joinEvent = async (id) => {
+    const eventRef = doc(db, "events", id);
+    await updateDoc(eventRef, { currentParticipants: increment(1) });
+    alert("Вы успешно записаны!");
+};
+
+window.deleteEvent = async (id) => {
+    if (confirm("Удалить?")) await deleteDoc(doc(db, "events", id));
+};
+
+// Навигация
+document.getElementById('prevMonth').onclick = () => { current.setMonth(current.getMonth() - 1); renderCalendar(); };
+document.getElementById('nextMonth').onclick = () => { current.setMonth(current.getMonth() + 1); renderCalendar(); };
+
 init();
-// Функция для показа обучения
-window.showTraining = function(type) {
-    const calendar = document.querySelector('.calendar-card');
-    const training = document.getElementById('trainingSection');
-    const content = document.getElementById('trainingContent');
-    const title = document.getElementById('trainingTitle');
-
-    calendar.style.display = 'none';
-    training.style.display = 'block';
-    closeSidebar(); // Закрываем меню после клика
-
-    if (type === 'base') {
-        title.innerText = "📚 База знаний";
-        content.innerHTML = `
-            <ul style="list-style: none; padding: 0;">
-                <li style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 8px;">
-                    <a href="https://www.redcross.org.ua/ru/first-aid/basics/" target="_blank">🚑 Основы первой помощи (Официально)</a>
-                </li>
-                <li style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 8px;">
-                    <a href="#">📖 Твои конспекты для волонтеров</a>
-                </li>
-            </ul>`;
-    } else {
-        title.innerText = "🚑 Алгоритмы ПМП";
-        content.innerHTML = `<p>Здесь скоро появятся пошаговые инструкции (СЛР, остановка кровотечения и др.)</p>`;
-    }
-};
-
-// Функция возврата
-window.showCalendar = function() {
-    document.querySelector('.calendar-card').style.display = 'block';
-    document.getElementById('trainingSection').style.display = 'none';
-};
