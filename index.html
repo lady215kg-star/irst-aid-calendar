@@ -1,488 +1,84 @@
-// ================================================
-//  FIRSTAID CALENDAR — app.js
-//  Firebase Firestore Integration
-// ================================================
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs,
-  deleteDoc,
-  doc,
-  orderBy,
-  Timestamp
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-// ---- Firebase Config ----
-const firebaseConfig = {
-  apiKey: "AIzaSyAw0gQQ7wht2-K2UfPNPfBimtp93QSkTXs",
-  authDomain: "first-aid-app-563c2.firebaseapp.com",
-  projectId: "first-aid-app-563c2",
-  storageBucket: "first-aid-app-563c2.firebasestorage.app",
-  messagingSenderId: "974895823548",
-  appId: "1:974895823548:web:643d6304a89e25c5a2aeb9"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// ================================================
-//  STATE
-// ================================================
-let currentDate = new Date();
-let selectedDate = null;         // JS Date object for selected day
-let selectedDateStr = null;      // "YYYY-MM-DD" string
-let eventDatesInMonth = new Set(); // dates that have events in current view
-let isSheetExpanded = false;
-
-// ================================================
-//  MONTH NAMES (Russian)
-// ================================================
-const MONTHS_RU = [
-  "Январь","Февраль","Март","Апрель","Май","Июнь",
-  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"
-];
-
-const TODAY = new Date();
-TODAY.setHours(0,0,0,0);
-
-// ================================================
-//  HELPERS
-// ================================================
-function dateToStr(d) {
-  // Returns "YYYY-MM-DD"
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDateRu(d) {
-  const days = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
-  const months = ["января","февраля","марта","апреля","мая","июня",
-                  "июля","августа","сентября","октября","ноября","декабря"];
-  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-// ================================================
-//  CALENDAR RENDER
-// ================================================
-function renderCalendar() {
-  const grid = document.getElementById("calendarGrid");
-  const monthEl = document.getElementById("calendarMonth");
-  const yearEl  = document.getElementById("calendarYear");
-
-  const year  = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  monthEl.textContent = MONTHS_RU[month];
-  yearEl.textContent  = year;
-
-  grid.innerHTML = "";
-
-  // First day of month (adjust: Mon=0)
-  const firstDay = new Date(year, month, 1);
-  let startOffset = firstDay.getDay() - 1;
-  if (startOffset < 0) startOffset = 6;
-
-  // Days in month
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  // Days in previous month
-  const prevMonthDays = new Date(year, month, 0).getDate();
-
-  // Fill previous month's trailing days
-  for (let i = startOffset - 1; i >= 0; i--) {
-    const dayNum = prevMonthDays - i;
-    const cell = createDayCell(dayNum, true, year, month - 1);
-    grid.appendChild(cell);
-  }
-
-  // Fill current month
-  for (let d = 1; d <= daysInMonth; d++) {
-    const cell = createDayCell(d, false, year, month);
-    grid.appendChild(cell);
-  }
-
-  // Fill next month
-  const totalCells = grid.children.length;
-  const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
-  for (let d = 1; d <= remaining; d++) {
-    const cell = createDayCell(d, true, year, month + 1);
-    grid.appendChild(cell);
-  }
-
-  // Load event markers for this month
-  loadMonthEventMarkers(year, month);
-}
-
-function createDayCell(dayNum, otherMonth, year, month) {
-  const cell = document.createElement("div");
-  cell.classList.add("cal-day");
-  cell.textContent = dayNum;
-
-  if (otherMonth) {
-    cell.classList.add("other-month");
-    return cell;
-  }
-
-  // Determine actual date for this cell
-  const cellDate = new Date(year, month, dayNum);
-  cellDate.setHours(0,0,0,0);
-
-  // Weekend check (0=Sun, 6=Sat)
-  const dow = cellDate.getDay();
-  if (dow === 0 || dow === 6) cell.classList.add("weekend-day");
-
-  // Today
-  if (cellDate.getTime() === TODAY.getTime()) cell.classList.add("today");
-
-  // Selected
-  const cellStr = dateToStr(cellDate);
-  if (cellStr === selectedDateStr) cell.classList.add("selected");
-
-  // Event marker (populated after async load)
-  cell.dataset.dateStr = cellStr;
-
-  cell.addEventListener("click", () => selectDate(cellDate, cellStr));
-  return cell;
-}
-
-// ================================================
-//  DATE SELECTION
-// ================================================
-function selectDate(dateObj, dateStr) {
-  selectedDate = dateObj;
-  selectedDateStr = dateStr;
-
-  // Update calendar highlights
-  document.querySelectorAll(".cal-day.selected").forEach(el => el.classList.remove("selected"));
-  const cell = document.querySelector(`.cal-day[data-date-str="${dateStr}"]`);
-  if (cell) cell.classList.add("selected");
-
-  // Update label
-  const wrap = document.getElementById("dateLabelWrap");
-  const label = document.getElementById("selectedDateLabel");
-  wrap.style.display = "flex";
-  label.textContent = formatDateRu(dateObj);
-
-  // Update sheet
-  document.getElementById("sheetTitle").textContent = formatDateLabel(dateObj);
-  document.getElementById("sheetSubtitle").textContent = "События на выбранный день";
-  document.getElementById("addEventBtn").style.display = "flex";
-
-  // Expand sheet & fetch
-  expandSheet();
-  fetchEvents(dateStr);
-}
-
-function formatDateLabel(d) {
-  const months = ["Январь","Февраль","Март","Апрель","Май","Июнь",
-                  "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
-  return `${d.getDate()} ${months[d.getMonth()].toLowerCase()}`;
-}
-
-// ================================================
-//  MONTH NAVIGATION
-// ================================================
-window.changeMonth = function(dir) {
-  currentDate.setMonth(currentDate.getMonth() + dir);
-  currentDate.setDate(1);
-  renderCalendar();
-};
-
-// ================================================
-//  FIREBASE — FETCH EVENTS FOR DATE
-// ================================================
-async function fetchEvents(dateStr) {
-  const list = document.getElementById("eventsList");
-  list.innerHTML = `
-    <div class="loader-wrap">
-      <div class="loader-ring"></div>
-      <p class="loader-text">Загрузка событий…</p>
-    </div>`;
-
-  try {
-    const q = query(
-      collection(db, "events"),
-      where("date", "==", dateStr),
-      orderBy("createdAt", "asc")
-    );
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      list.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🗓️</div>
-          <p>Нет событий на этот день</p>
-        </div>`;
-      return;
-    }
-
-    list.innerHTML = "";
-    snap.forEach((docSnap) => {
-      const data = docSnap.data();
-      list.appendChild(buildEventCard(docSnap.id, data));
-    });
-
-  } catch (err) {
-    console.error("Fetch error:", err);
-    list.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">⚠️</div>
-        <p>Ошибка загрузки событий</p>
-      </div>`;
-    showToast("Ошибка подключения к базе", "error");
-  }
-}
-
-// ================================================
-//  FIREBASE — LOAD MONTH EVENT MARKERS
-// ================================================
-async function loadMonthEventMarkers(year, month) {
-  const startStr = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const endStr   = `${year}-${String(month + 1).padStart(2, "0")}-31`;
-
-  try {
-    const q = query(
-      collection(db, "events"),
-      where("date", ">=", startStr),
-      where("date", "<=", endStr)
-    );
-    const snap = await getDocs(q);
-    eventDatesInMonth = new Set();
-    snap.forEach(d => eventDatesInMonth.add(d.data().date));
-
-    // Apply dot markers to rendered cells
-    eventDatesInMonth.forEach(dateStr => {
-      const cell = document.querySelector(`.cal-day[data-date-str="${dateStr}"]`);
-      if (cell) cell.classList.add("has-event");
-    });
-  } catch (err) {
-    console.warn("Marker load error:", err);
-  }
-}
-
-// ================================================
-//  FIREBASE — SAVE EVENT
-// ================================================
-window.saveEvent = async function() {
-  const title = document.getElementById("eventTitle").value.trim();
-  const desc  = document.getElementById("eventDesc").value.trim();
-  const time  = document.getElementById("eventTime").value;
-
-  if (!title) {
-    document.getElementById("eventTitle").focus();
-    showToast("Введите название события", "error");
-    return;
-  }
-  if (!selectedDateStr) {
-    showToast("Дата не выбрана", "error");
-    return;
-  }
-
-  // Loading state
-  document.getElementById("submitBtnText").style.display = "none";
-  document.getElementById("btnSpinner").style.display = "block";
-
-  try {
-    await addDoc(collection(db, "events"), {
-      title,
-      description: desc,
-      time,
-      date: selectedDateStr,
-      createdAt: Timestamp.now()
-    });
-
-    showToast("Событие сохранено ✓", "success");
-    closeModal();
-    fetchEvents(selectedDateStr);
-    loadMonthEventMarkers(currentDate.getFullYear(), currentDate.getMonth());
-
-  } catch (err) {
-    console.error("Save error:", err);
-    showToast("Ошибка сохранения", "error");
-  } finally {
-    document.getElementById("submitBtnText").style.display = "block";
-    document.getElementById("btnSpinner").style.display = "none";
-  }
-};
-
-// ================================================
-//  FIREBASE — DELETE EVENT
-// ================================================
-window.deleteEvent = async function(eventId, btnEl) {
-  if (!confirm("Удалить это событие?")) return;
-
-  btnEl.innerHTML = `<div class="btn-spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,0,0,0.2);border-top-color:#C1121F;"></div>`;
-  btnEl.disabled = true;
-
-  try {
-    await deleteDoc(doc(db, "events", eventId));
-    showToast("Событие удалено", "success");
-
-    // Animate card out
-    const card = btnEl.closest(".event-card");
-    if (card) {
-      card.style.transition = "all 0.3s ease";
-      card.style.opacity = "0";
-      card.style.transform = "scale(0.95)";
-      setTimeout(() => {
-        fetchEvents(selectedDateStr);
-        loadMonthEventMarkers(currentDate.getFullYear(), currentDate.getMonth());
-      }, 300);
-    }
-  } catch (err) {
-    console.error("Delete error:", err);
-    showToast("Ошибка удаления", "error");
-    btnEl.innerHTML = deleteIcon();
-    btnEl.disabled = false;
-  }
-};
-
-// ================================================
-//  BUILD EVENT CARD
-// ================================================
-function buildEventCard(id, data) {
-  const card = document.createElement("div");
-  card.className = "event-card";
-  card.innerHTML = `
-    <div class="event-dot-wrap">
-      <div class="event-dot"></div>
-    </div>
-    <div class="event-content">
-      <p class="event-title">${escapeHtml(data.title)}</p>
-      ${data.description ? `<p class="event-desc">${escapeHtml(data.description)}</p>` : ""}
-      ${data.time ? `<span class="event-time">🕐 ${data.time}</span>` : ""}
-    </div>
-    <button class="event-delete" onclick="deleteEvent('${id}', this)" aria-label="Удалить событие">
-      ${deleteIcon()}
-    </button>`;
-  return card;
-}
-
-function deleteIcon() {
-  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1v2"/></svg>`;
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-}
-
-// ================================================
-//  BOTTOM SHEET CONTROLS
-// ================================================
-window.toggleSheet = function() {
-  isSheetExpanded ? collapseSheet() : expandSheet();
-};
-
-function expandSheet() {
-  document.getElementById("bottomSheet").classList.add("expanded");
-  isSheetExpanded = true;
-}
-
-function collapseSheet() {
-  document.getElementById("bottomSheet").classList.remove("expanded");
-  isSheetExpanded = false;
-}
-
-// Touch-to-drag on bottom sheet
-(function setupSheetSwipe() {
-  const sheet = document.getElementById("bottomSheet");
-  let startY = 0;
-  let startTranslate = 0;
-  let dragging = false;
-
-  sheet.addEventListener("touchstart", e => {
-    if (!e.target.closest(".sheet-handle-wrap")) return;
-    startY = e.touches[0].clientY;
-    dragging = true;
-    sheet.style.transition = "none";
-  }, { passive: true });
-
-  document.addEventListener("touchmove", e => {
-    if (!dragging) return;
-    const dy = e.touches[0].clientY - startY;
-    if (isSheetExpanded && dy > 0) {
-      sheet.style.transform = `translateY(${dy}px)`;
-    } else if (!isSheetExpanded && dy < 0) {
-      const base = parseInt(getComputedStyle(sheet).height) - parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sheet-collapsed"));
-      sheet.style.transform = `translateY(${base + dy}px)`;
-    }
-  }, { passive: true });
-
-  document.addEventListener("touchend", e => {
-    if (!dragging) return;
-    dragging = false;
-    sheet.style.transition = "";
-    sheet.style.transform = "";
-    const dy = e.changedTouches[0].clientY - startY;
-    if (dy > 60) collapseSheet();
-    else if (dy < -60) expandSheet();
-  });
-})();
-
-// ================================================
-//  MODAL CONTROLS
-// ================================================
-window.openAddModal = function() {
-  if (!selectedDateStr) { showToast("Сначала выберите дату", "error"); return; }
-  document.getElementById("eventTitle").value = "";
-  document.getElementById("eventDesc").value = "";
-  document.getElementById("eventTime").value = "";
-  document.getElementById("modalOverlay").classList.add("active");
-  document.getElementById("addModal").classList.add("open");
-  setTimeout(() => document.getElementById("eventTitle").focus(), 350);
-};
-
-window.closeModal = function() {
-  document.getElementById("modalOverlay").classList.remove("active");
-  document.getElementById("addModal").classList.remove("open");
-};
-
-// ================================================
-//  SIDEBAR CONTROLS
-// ================================================
-window.openSidebar = function() {
-  document.getElementById("sidebar").classList.add("open");
-  document.getElementById("sidebarOverlay").classList.add("active");
-  document.body.style.overflow = "hidden";
-};
-
-window.closeSidebar = function() {
-  document.getElementById("sidebar").classList.remove("open");
-  document.getElementById("sidebarOverlay").classList.remove("active");
-  document.body.style.overflow = "";
-};
-
-// ================================================
-//  TOAST
-// ================================================
-let toastTimer;
-function showToast(msg, type = "") {
-  const toast = document.getElementById("toast");
-  toast.textContent = msg;
-  toast.className = `toast${type ? " " + type : ""} show`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    toast.classList.remove("show");
-  }, 3000);
-}
-
-// ================================================
-//  KEYBOARD & ESCAPE
-// ================================================
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") {
-    closeModal();
-    closeSidebar();
-  }
-});
-
-// ================================================
-//  INIT
-// ================================================
-renderCalendar();
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FirstAid Calendar</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="app-header">
+        <button class="hamburger" id="menuBtn">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="header-logo">
+            <div class="logo-cross">✚</div>
+            <span class="logo-text">FirstAid</span>
+        </div>
+        <div class="header-action">🔔</div>
+    </header>
+
+    <div class="sidebar-overlay" id="overlay"></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">Меню</div>
+            <button class="sidebar-close" id="closeSidebar">✕</button>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="sidebar-section-label">Обучение</div>
+            <a href="#" class="sidebar-item">📚 База знаний</a>
+            <a href="#" class="sidebar-item">🚑 Алгоритмы ПМП</a>
+        </nav>
+    </aside>
+
+    <main class="app-main">
+        <section class="calendar-card">
+            <div class="calendar-nav">
+                <button class="nav-btn" id="prevMonth">❮</button>
+                <div class="calendar-title-wrap">
+                    <span class="calendar-month" id="monthDisplay">Апрель</span>
+                    <span class="calendar-year" id="yearDisplay">2026</span>
+                </div>
+                <button class="nav-btn" id="nextMonth">❯</button>
+            </div>
+
+            <div class="weekdays">
+                <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span class="weekend">Сб</span><span class="weekend">Вс</span>
+            </div>
+            
+            <div class="calendar-grid" id="calendarGrid">
+                </div>
+
+            <div class="date-label-wrap">
+                <div class="date-label-pill">
+                    <div class="pulse-dot"></div>
+                    <span id="selectedDateLabel">Выберите дату</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <section class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-handle-wrap" id="sheetHandle">
+            <div class="sheet-handle"></div>
+        </div>
+        <div class="sheet-header">
+            <div class="sheet-title-wrap">
+                <h3 class="sheet-title">События</h3>
+                <p class="sheet-subtitle">План на день</p>
+            </div>
+            <button class="add-event-btn" id="openModal">+ Добавить</button>
+        </div>
+        <div class="events-list" id="eventsList">
+            <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <p>На этот день пока нет задач</p>
+            </div>
+        </div>
+    </section>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
