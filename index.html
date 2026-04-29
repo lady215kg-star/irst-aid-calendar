@@ -10,7 +10,7 @@
 <body>
 
     <header class="app-header">
-        <button class="hamburger" id="menuBtn">
+        <button class="hamburger" id="menuBtn" onclick="openSidebar()">
             <span></span><span></span><span></span>
         </button>
         <div class="header-logo">
@@ -28,55 +28,32 @@
         </div>
         <nav class="sidebar-nav">
             <div class="sidebar-section-label">Обучение</div>
-            <a href="#" class="sidebar-item">📚 База знаний</a>
-            <a href="#" class="sidebar-item">🚑 Алгоритмы ПМП</a>
+            <a href="https://disk.yandex.ru/d/bRkh0mJBhW5llQ" target="_blank" class="sidebar-item">📚 База знаний</a>
+            <a href="https://disk.yandex.ru/d/bRkh0mJBhW5llQ" target="_blank" class="sidebar-item">🚑 Алгоритмы ПМП</a>
         </nav>
     </aside>
 
     <main class="app-main">
         <section class="calendar-card">
-    <div class="calendar-nav">
-        <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
-        <div class="calendar-title-wrap">
-            <span class="calendar-month" id="monthDisplay"></span>
-            <span class="calendar-year" id="yearDisplay"></span>
-        </div>
-        <button class="nav-btn" onclick="changeMonth(1)">❯</button>
-    </div>
-
-    <div id="iconLibrary" style="display: none;">
-        <span class="ico-time">⏰</span>
-        <span class="ico-location">📍</span>
-    </div>
-
-    <div class="weekdays">
-        <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span class="weekend">Сб</span><span class="weekend">Вс</span>
-    </div>
-    
-    <div class="calendar-grid" id="calendarGrid"></div>
-
-    <div class="date-label-wrap">
-        <div class="date-label-pill">
-            <div class="pulse-dot"></div>
-            <span id="selectedDateLabel">Выберите дату</span>
-        </div>
-    </div>
-</section>
             <div class="calendar-nav">
-                <button class="nav-btn" id="prevMonth">❮</button>
+                <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
                 <div class="calendar-title-wrap">
                     <span class="calendar-month" id="monthDisplay">Апрель</span>
                     <span class="calendar-year" id="yearDisplay">2026</span>
                 </div>
-                <button class="nav-btn" id="nextMonth">❯</button>
+                <button class="nav-btn" onclick="changeMonth(1)">❯</button>
+            </div>
+
+            <div id="iconLibrary" style="display: none;">
+                <span class="ico-time">⏰</span>
+                <span class="ico-location">📍</span>
             </div>
 
             <div class="weekdays">
                 <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span class="weekend">Сб</span><span class="weekend">Вс</span>
             </div>
             
-            <div class="calendar-grid" id="calendarGrid">
-                </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
 
             <div class="date-label-wrap">
                 <div class="date-label-pill">
@@ -99,12 +76,27 @@
             <button class="add-event-btn" id="openModal">+ Добавить</button>
         </div>
         <div class="events-list" id="eventsList">
-            <div class="empty-state">
-                <span class="empty-icon">📅</span>
-                <p>На этот день пока нет задач</p>
             </div>
-        </div>
     </section>
+
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="add-modal" id="addModal">
+        <div class="modal-header">Мероприятие</div>
+        <div class="modal-body">
+            <input type="text" id="eventTitle" placeholder="Что за мероприятие?">
+            <input type="text" id="eventLocation" placeholder="Где пройдет?">
+            <input type="number" id="eventParticipants" placeholder="Кол участников">
+            <input type="text" id="eventTime" placeholder="Описание и время">
+            
+            <button class="modal-save-btn" onclick="saveEvent()">
+                <span id="submitBtnText">Сохранить</span>
+                <div id="btnSpinner" class="btn-spinner" style="display:none;"></div>
+            </button>
+            <button class="modal-cancel-btn" onclick="closeModal()">Отмена</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
 
     <script type="module" src="app.js"></script>
 </body>
