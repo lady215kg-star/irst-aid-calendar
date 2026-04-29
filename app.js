@@ -157,3 +157,17 @@ window.joinEvent = async (eventId, eventTitle) => {
 };
 
 renderCalendar();
+// Глобальная функция удаления
+window.deleteEvent = async (id) => {
+    if (confirm("Удалить это мероприятие?")) {
+        try {
+            const { doc, deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+            await deleteDoc(doc(db, "events", id));
+            renderCalendar(); // Обновляем точки на календаре
+            eventsContainer.innerHTML = ''; // Чистим список
+            alert("Удалено!");
+        } catch (e) {
+            console.error("Ошибка удаления: ", e);
+        }
+    }
+};
