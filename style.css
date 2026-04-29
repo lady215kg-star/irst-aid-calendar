@@ -95,3 +95,45 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
     background: #ff4444;
     color: white;
 }
+/* Настройки специально для телефонов */
+@media (max-width: 768px) {
+    /* Делаем боковую панель и календарь друг под другом, а не в ряд */
+    .app-wrapper {
+        flex-direction: column;
+        height: auto;
+    }
+
+    /* Боковая панель теперь сверху и на всю ширину */
+    .sidebar {
+        width: 100%;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    /* Календарь занимает всё оставшееся место */
+    .main-content {
+        grid-template-columns: 1fr; /* Одна колонка вместо двух */
+        padding: 10px;
+    }
+
+    /* Делаем ячейки календаря крупнее, чтобы удобно было тыкать пальцем */
+    .calendar-grid {
+        gap: 5px;
+    }
+
+    .day {
+        font-size: 14px;
+        height: 50px; /* Фиксированная высота для удобства */
+    }
+
+    /* Карточки событий делаем на весь экран */
+    .event-card {
+        margin-bottom: 15px;
+    }
+
+    /* Кнопки делаем побольше, под палец */
+    button {
+        padding: 12px;
+        font-size: 16px;
+    }
+}
