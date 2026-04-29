@@ -2,32 +2,58 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>First Aid Instructor Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RedCrescent Calendar</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('active')">☰ Обучение</button>
-
-<div class="sidebar">
-    <h2>RedCrescent</h2>
-    <p>Здесь твои обучающие материалы...</p>
-    <a href="#" class="nav-link">📚 Google Docs</a>
-</div>
-
-<div class="main-content">
-    <div class="calendar-container">
-        <div class="calendar-header">
-            <button id="prevMonth">❮</button>
-            <h3 id="monthDisplay">Апрель 2026</h3>
-            <button id="nextMonth">❯</button>
+    <header class="app-bar">
+        <div class="header-content">
+            <button class="menu-icon" id="menuBtn"><span></span></button>
+            <h1>FirstAid</h1>
+            <div class="user-avatar">AT</div>
         </div>
-        <div class="calendar-grid" id="calendarGrid"></div>
-    </div>
+    </header>
 
-    <div id="eventsContainer">
-        </div>
-</div>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header"><h2>Обучение</h2></div>
+        <nav>
+            <a href="#" class="nav-item">📚 База знаний</a>
+            <a href="#" class="nav-item">🚑 Алгоритмы ПМП</a>
+            <a href="#" class="nav-item">📞 Контакты</a>
+        </nav>
+    </aside>
+
+    <main class="viewport">
+        <section class="calendar-card">
+            <div class="calendar-top">
+                <h2 id="yearLabel">2026</h2>
+                <div class="month-selector">
+                    <button id="prevBtn">←</button>
+                    <span id="monthLabel">Апрель</span>
+                    <button id="nextBtn">→</button>
+                </div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid">
+                <div class="weekday">Пн</div><div class="weekday">Вт</div><div class="weekday">Ср</div>
+                <div class="weekday">Чт</div><div class="weekday">Пт</div><div class="weekday">Сб</div><div class="weekday">Вс</div>
+            </div>
+        </section>
+
+        <section class="events-sheet">
+            <div class="handle"></div>
+            <div class="sheet-content">
+                <h3>События дня</h3>
+                <div id="eventsList">
+                    <p class="empty-msg">Нажмите на дату, чтобы увидеть детали</p>
+                </div>
+            </div>
+        </main>
+    </main>
+
+    <div class="fab" id="addEventBtn">+</div>
+
+    <script type="module" src="app.js"></script>
 </body>
 </html>
